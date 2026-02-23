@@ -34,10 +34,6 @@ button{
     cursor:pointer;
     margin-top:20px;
 }
-button:disabled{
-    opacity:0.4;
-    cursor:not-allowed;
-}
 .answer{
     display:block;
     margin:10px auto;
@@ -56,11 +52,6 @@ button:disabled{
     color:red;
     margin-top:40px;
 }
-.loading{
-    margin-top:20px;
-    font-size:14px;
-    opacity:0.7;
-}
 </style>
 </head>
 
@@ -73,12 +64,12 @@ button:disabled{
 
 <div class="card">
 <h2>🏳 Guess The Flag</h2>
-<button id="flagsBtn" onclick="startQuiz('flags')" disabled>Play</button>
+<button onclick="startQuiz('flags')">Play</button>
 </div>
 
 <div class="card">
 <h2>🌍 Capital City Challenge</h2>
-<button id="capitalsBtn" onclick="startQuiz('capitals')" disabled>Play</button>
+<button onclick="startQuiz('capitals')">Play</button>
 </div>
 
 <div class="card">
@@ -93,8 +84,6 @@ button:disabled{
 
 </div>
 
-<div class="loading" id="loadingMsg">Loading countries...</div>
-
 <div id="quiz">
 <h2 id="question"></h2>
 <div id="flagContainer"></div>
@@ -105,34 +94,32 @@ button:disabled{
 
 <script>
 
-let countries = [];
-let questions = [];
-let current = 0;
-let score = 0;
-let mode = "";
-let countriesLoaded = false;
-
 // =====================
-// FETCH ALL COUNTRIES
+// EMBEDDED COUNTRIES
 // =====================
 
-fetch("https://restcountries.com/v3.1/all")
-.then(res => res.json())
-.then(data => {
-    countries = data
-        .filter(c => c.capital && c.flags && c.flags.png)
-        .map(c => ({
-            name: c.name.common,
-            capital: c.capital[0],
-            flag: c.flags.png
-        }));
-
-    countriesLoaded = true;
-
-    document.getElementById("flagsBtn").disabled = false;
-    document.getElementById("capitalsBtn").disabled = false;
-    document.getElementById("loadingMsg").innerText = "Countries loaded ✔";
-});
+const countries = [
+{ name:"United States", capital:"Washington, D.C.", flag:"https://flagcdn.com/w320/us.png" },
+{ name:"United Kingdom", capital:"London", flag:"https://flagcdn.com/w320/gb.png" },
+{ name:"France", capital:"Paris", flag:"https://flagcdn.com/w320/fr.png" },
+{ name:"Germany", capital:"Berlin", flag:"https://flagcdn.com/w320/de.png" },
+{ name:"Italy", capital:"Rome", flag:"https://flagcdn.com/w320/it.png" },
+{ name:"Spain", capital:"Madrid", flag:"https://flagcdn.com/w320/es.png" },
+{ name:"Canada", capital:"Ottawa", flag:"https://flagcdn.com/w320/ca.png" },
+{ name:"Australia", capital:"Canberra", flag:"https://flagcdn.com/w320/au.png" },
+{ name:"Brazil", capital:"Brasilia", flag:"https://flagcdn.com/w320/br.png" },
+{ name:"Japan", capital:"Tokyo", flag:"https://flagcdn.com/w320/jp.png" },
+{ name:"India", capital:"New Delhi", flag:"https://flagcdn.com/w320/in.png" },
+{ name:"China", capital:"Beijing", flag:"https://flagcdn.com/w320/cn.png" },
+{ name:"Mexico", capital:"Mexico City", flag:"https://flagcdn.com/w320/mx.png" },
+{ name:"Netherlands", capital:"Amsterdam", flag:"https://flagcdn.com/w320/nl.png" },
+{ name:"Argentina", capital:"Buenos Aires", flag:"https://flagcdn.com/w320/ar.png" },
+{ name:"South Africa", capital:"Pretoria", flag:"https://flagcdn.com/w320/za.png" },
+{ name:"Sweden", capital:"Stockholm", flag:"https://flagcdn.com/w320/se.png" },
+{ name:"Norway", capital:"Oslo", flag:"https://flagcdn.com/w320/no.png" },
+{ name:"Switzerland", capital:"Bern", flag:"https://flagcdn.com/w320/ch.png" },
+{ name:"South Korea", capital:"Seoul", flag:"https://flagcdn.com/w320/kr.png" }
+];
 
 // =====================
 // WILD FACTS
@@ -143,55 +130,47 @@ const wildFacts = [
 {q:"Honey never spoils.", options:["True","False"], answer:"True"},
 {q:"Bananas are berries.", options:["True","False"], answer:"True"},
 {q:"A day on Venus is longer than a year.", options:["True","False"], answer:"True"},
-{q:"Sharks existed before trees.", options:["True","False"], answer:"True"},
-{q:"Lightning never strikes twice.", options:["True","False"], answer:"False"},
-{q:"Water boils at 90°C at sea level.", options:["True","False"], answer:"False"},
-{q:"Humans share about 60% DNA with bananas.", options:["True","False"], answer:"True"}
+{q:"Lightning never strikes twice.", options:["True","False"], answer:"False"}
 ];
 
 // =====================
-// S&P 500 CLUES
+// S&P CLUES
 // =====================
 
 const sp500 = [
 { name:"Apple", clues:["CEO first name: Tim","Best selling product: iPhone","Sector: Consumer Technology"] },
 { name:"Microsoft", clues:["CEO first name: Satya","Flagship product: Windows","Major cloud platform: Azure"] },
 { name:"Alphabet", clues:["CEO first name: Sundar","Owns Google","Primary revenue: Search advertising"] },
-{ name:"Amazon", clues:["CEO first name: Andy","Major business: AWS cloud","Founded by Jeff Bezos"] },
-{ name:"NVIDIA", clues:["CEO first name: Jensen","Dominates AI GPUs","Ticker: NVDA"] },
-{ name:"Meta", clues:["CEO first name: Mark","Owns Instagram","Formerly called Facebook"] },
-{ name:"Tesla", clues:["CEO first name: Elon","Best selling product: Model Y","Sector: Electric vehicles"] },
-{ name:"Berkshire Hathaway", clues:["CEO first name: Warren","Owns Geico","Major investor in Apple"] },
-{ name:"JPMorgan Chase", clues:["CEO first name: Jamie","Largest US bank by assets","Ticker: JPM"] },
-{ name:"Walmart", clues:["CEO first name: Doug","Largest retailer in the world","Founded in Arkansas"] }
+{ name:"Amazon", clues:["CEO first name: Andy","Major business: AWS cloud","Founded by Jeff Bezos"] }
 ];
 
 // =====================
-// HELPERS
+// QUIZ LOGIC
 // =====================
+
+let questions = [];
+let current = 0;
+let score = 0;
+let mode = "";
 
 function shuffle(array){
     return array.sort(()=>Math.random()-0.5);
 }
 
 function startQuiz(type){
-
     mode = type;
     current = 0;
     score = 0;
 
     document.getElementById("home").style.display="none";
     document.getElementById("quiz").style.display="block";
-    document.getElementById("loadingMsg").style.display="none";
 
     if(type==="capitals" || type==="flags"){
         questions = shuffle([...countries]);
     }
-
     if(type==="facts"){
         questions = shuffle([...wildFacts]);
     }
-
     if(type==="sp500"){
         questions = shuffle([...sp500]);
     }
@@ -243,7 +222,6 @@ function showQuestion(){
 
     if(mode==="sp500"){
         let company = questions[current];
-
         document.getElementById("question").innerHTML =
             "<strong>Guess the company:</strong><br><br>" +
             company.clues.map(c => "• " + c).join("<br>");
