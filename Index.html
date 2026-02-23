@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Arcade</title>
+
+<style>
+body{
+    font-family: Arial, sans-serif;
+    background:#0f172a;
+    color:white;
+    text-align:center;
+    margin:0;
+}
+h1{margin-top:40px;font-size:42px;}
+.subtitle{opacity:.7;margin-bottom:40px;}
+.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+    gap:20px;
+    padding:40px;
+}
+.card{
+    background:#1e293b;
+    padding:30px;
+    border-radius:15px;
+}
+button{
+    padding:12px 25px;
+    border:none;
+    border-radius:8px;
+    font-size:16px;
+    cursor:pointer;
+    margin-top:20px;
+}
+.answer{
+    display:block;
+    margin:10px auto;
+    width:260px;
+}
+#quiz{display:none;padding:20px;}
+.flag{
+    width:220px;
+    height:140px;
+    object-fit:cover;
+    border-radius:8px;
+    margin-bottom:15px;
+}
+.fail{
+    font-size:50px;
+    color:red;
+    margin-top:40px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🎮 Quiz Arcade</h1>
+<div class="subtitle">All countries. Real flags. Random order. S&P clue challenge.</div>
+
+<div id="home" class="grid">
+
+<div class="card">
+<h2>🏳 Guess The Flag</h2>
+<button onclick="startQuiz('flags')">Play</button>
+</div>
+
+<div class="card">
+<h2>🌍 Capital City Challenge</h2>
+<button onclick="startQuiz('capitals')">Play</button>
+</div>
+
+<div class="card">
+<h2>🧠 Wild Facts Quiz</h2>
+<button onclick="startQuiz('facts')">Play</button>
+</div>
+
+<div class="card">
+<h2>📈 S&P 500 Clue Game</h2>
+<button onclick="startQuiz('sp500')">Play</button>
+</div>
+
+</div>
+
+<div id="quiz">
+<h2 id="question"></h2>
+<div id="flagContainer"></div>
+<div id="answers"></div>
+<p id="score"></p>
+<button onclick="goHome()">Back to Home</button>
+</div>
+
+<script>
+
+let countries = [];
+let questions = [];
+let current = 0;
+let score = 0;
+let mode = "";
+
+// =====================
+// FETCH ALL COUNTRIES
+// =====================
+
+fetch("https://restcountries.com/v3.1/all")
+.then(res => res.json())
+.then(data => {
+    countries = data
+        .filter(c => c.capital && c.flags && c.flags.png)
+        .map(c => ({
+            name: c.name.common,
+            capital: c.capital[0],
+            flag: c.flags.png
+        }));
+});
+
+// =====================
+// WILD FACTS
+// =====================
+
+const wildFacts = [
+{q:"Octopuses have how many hearts?", options:["1","2","3","4"], answer:"3"},
+{q:"Honey never spoils.", options:["True","False"], answer:"True"},
+{q:"Bananas are berries.", options:["True","False"], answer:"True"},
+{q:"A day on Venus is longer than a year.", options:["True","False"], answer:"True"},
+{q:"Sharks existed before trees.", options:["True","False"], answer:"True"},
+{q:"Lightning never strikes twice.", options:["True","False"], answer:"False"},
+{q:"Water boils at 90°C at sea level.", options:["True","False"], answer:"False"},
+{q:"Humans share about 60% DNA with bananas.", options:["True","False"], answer:"True"}
+];
+
+// =====================
+// S&P 500 CLUE DATA
+// =====================
+
+const sp500 = [
+{
+name:"Apple",
+clues:[
+"CEO first name: Tim",
+"Best selling product: iPhone",
+"Sector: Consumer Technology"
+]
+},
+{
+name:"Microsoft",
+clues:[
+"CEO first name: Satya",
+"Flagship product: Windows",
+"Major cloud platform: Azure"
+]
+},
+{
+name:"Alphabet",
+clues:[
+"CEO first name: Sundar",
+"Owns Google",
+"Primary revenue: Search advertising"
+]
+},
+{
+name:"Amazon",
+clues:[
+"CEO first name: Andy",
+"Major business: AWS cloud",
+"Founded by Jeff Bezos"
+]
+},
+{
+name:"NVIDIA",
+clues:[
+"CEO first name: Jensen",
+"Dominates AI GPUs",
+"Ticker: NVDA"
+]
+},
+{
+name:"Meta",
+clues:[
+"CEO first name: Mark",
+"Owns Instagram",
+"Formerly called Facebook"
+]
+},
+{
+name:"Tesla",
+clues:[
+"CEO first name: Elon",
+"Best selling product: Model Y",
+"Sector: Electric vehicles"
+]
+},
+{
+name:"Berkshire Hathaway",
+clues:[
+"CEO first name: Warren",
+"Owns Geico",
+"Major investor in Apple"
+]
+},
+{
+name:"JPMorgan Chase",
+clues:[
+"CEO first name: Jamie",
+"Largest US bank by assets",
+"Ticker: JPM"
+]
+},
+{
+name:"Walmart",
+clues:[
+"CEO first name: Doug",
+"Largest retailer in the world",
+"Founded in Arkansas"
+]
+},
+{
+name:"Visa",
+clues:[
+"CEO first name: Ryan",
+"Sector: Payments",
+"Major card network"
+]
+},
+{
+name:"Coca-Cola",
+clues:[
+"CEO first name: James",
+"Best selling product: Coca-Cola",
+"Sector: Beverages"
+]
+}
+];
+
+// =====================
+// HELPERS
+// =====================
+
+function shuffle(array){
+    return array.sort(()=>Math.random()-0.5);
+}
+
+function startQuiz(type){
+
+    if(type==="capitals" || type==="flags"){
+        if(countries.length===0){
+            alert("Countries still loading. Try again in a second.");
+            return;
+        }
+    }
+
+    mode = type;
+    current = 0;
+    score = 0;
+
+    document.getElementById("home").style.display="none";
+    document.getElementById("quiz").style.display="block";
+
+    if(type==="capitals" || type==="flags"){
+        questions = shuffle([...countries]);
+    }
+
+    if(type==="facts"){
+        questions = shuffle([...wildFacts]);
+    }
+
+    if(type==="sp500"){
+        questions = shuffle([...sp500]);
+    }
+
+    showQuestion();
+}
+
+function showQuestion(){
+
+    if(current>=questions.length){
+        alert("🎉 You completed it! Score: "+score);
+        goHome();
+        return;
+    }
+
+    document.getElementById("flagContainer").innerHTML="";
+    document.getElementById("answers").innerHTML="";
+
+    if(mode==="capitals"){
+        let c = questions[current];
+        document.getElementById("question").innerText="What is the capital of "+c.name+"?";
+        let options = shuffle([
+            c.capital,
+            ...shuffle(countries.filter(x=>x.capital!==c.capital)).slice(0,3).map(x=>x.capital)
+        ]);
+        buildOptions(options,c.capital);
+    }
+
+    if(mode==="flags"){
+        let c = questions[current];
+        document.getElementById("question").innerText="Which country is this?";
+        let img = document.createElement("img");
+        img.src=c.flag;
+        img.className="flag";
+        document.getElementById("flagContainer").appendChild(img);
+
+        let options = shuffle([
+            c.name,
+            ...shuffle(countries.filter(x=>x.name!==c.name)).slice(0,3).map(x=>x.name)
+        ]);
+        buildOptions(options,c.name);
+    }
+
+    if(mode==="facts"){
+        let f = questions[current];
+        document.getElementById("question").innerText=f.q;
+        buildOptions(f.options,f.answer);
+    }
+
+    if(mode==="sp500"){
+        let company = questions[current];
+
+        document.getElementById("question").innerHTML =
+            "<strong>Guess the company:</strong><br><br>" +
+            company.clues.map(c => "• " + c).join("<br>");
+
+        let options = shuffle([
+            company.name,
+            ...shuffle(sp500.filter(x=>x.name!==company.name))
+                .slice(0,3)
+                .map(x=>x.name)
+        ]);
+
+        buildOptions(options,company.name);
+    }
+
+    document.getElementById("score").innerText="Score: "+score;
+}
+
+function buildOptions(options,correct){
+    options.forEach(opt=>{
+        let btn=document.createElement("button");
+        btn.className="answer";
+        btn.innerText=opt;
+        btn.onclick=()=>{
+            if(opt===correct){
+                score++;
+                current++;
+                showQuestion();
+            }else{
+                document.getElementById("quiz").innerHTML=
+                "<div class='fail'>❌ WRONG</div>"+
+                "<h2>Final Score: "+score+"</h2>"+
+                "<button onclick='goHome()'>Return Home</button>";
+            }
+        };
+        document.getElementById("answers").appendChild(btn);
+    });
+}
+
+function goHome(){
+    location.reload();
+}
+
+</script>
+
+</body>
+</html>
